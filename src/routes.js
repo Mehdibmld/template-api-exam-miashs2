@@ -11,14 +11,12 @@ export function registerRoutes(fastify) {
     const cityId = request.params.cityId;
 
     try {
-      // Appel API City Insights avec clé en query
       const cityRes = await fetch(`${baseUrl}/cities/${cityId}/insights?apiKey=${apiKey}`);
       if (!cityRes.ok) return reply.status(404).send({ error: 'City not found' });
-
       const city = await cityRes.json();
 
-      // Appel API météo avec clé en query
       const weatherRes = await fetch(`${baseUrl}/weather-predictions?cityIdentifier=${cityId}&apiKey=${apiKey}`);
+      if (!weatherRes.ok) return reply.status(500).send({ error: 'Weather API error' });
       const weatherData = await weatherRes.json();
 
       const response = {
@@ -27,17 +25,18 @@ export function registerRoutes(fastify) {
           city.coordinates[0].longitude
         ],
         population: city.population,
-        knownFor: city.knownFor.map(k => k.content),
-        weatherPredictions: weatherData[0].predictions.slice(0, 2).map((w, i) => ({
+        knownFor: Array.isArray(city.knownFor) ? city.knownFor.map(k => k.content) : [],
+        weatherPredictions: weatherData[0]?.predictions?.slice(0, 2).map((w, i) => ({
           when: i === 0 ? 'today' : 'tomorrow',
           min: w.minTemperature,
           max: w.maxTemperature
-        })),
+        })) || [],
         recipes: recipes[cityId] || []
       };
 
       reply.send(response);
     } catch (error) {
+      console.error('Error:', error);
       reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -57,10 +56,13 @@ export function registerRoutes(fastify) {
 
       if (!recipes[cityId]) recipes[cityId] = [];
 
-      const newRecipe = { id: Date.now(), content };
-      recipes[cityId].push(newRecipe);
+      const newRecipe = {
+        id: Math.floor(Math.random() * 1000000),
+        content: String(content).trim()
+      };
 
-      reply.status(201).send(newRecipe);
+      recipes[cityId].push(newRecipe);
+      reply.code(201).send(newRecipe);
     } catch (error) {
       reply.status(500).send({ error: 'Internal server error' });
     }
@@ -80,7 +82,7 @@ export function registerRoutes(fastify) {
       if (index === -1) return reply.status(404).send({ error: 'Recipe not found' });
 
       list.splice(index, 1);
-      reply.status(204).send();
+      reply.code(204).send(); // correction ici
     } catch (error) {
       reply.status(500).send({ error: 'Internal server error' });
     }
