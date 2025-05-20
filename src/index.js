@@ -1,11 +1,35 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
 import { submitForReview } from './submission.js'
+import fastifySwagger from '@fastify/swagger'
+import fastifySwaggerUI from '@fastify/swagger-ui'
+import { swaggerDocument } from './swagger.js'
+import { registerRoutes } from './routes.js'
 
 const fastify = Fastify({
   logger: true,
 })
 
+// Swagger JSON (disponible sur /documentation/json)
+fastify.register(fastifySwagger, {
+  swagger: swaggerDocument,
+})
+
+// Swagger UI (interface visible à la racine "/")
+fastify.register(fastifySwaggerUI, {
+  routePrefix: '/',
+  uiConfig: {
+    docExpansion: 'full',
+    deepLinking: false
+  },
+  staticCSP: true,
+  transformStaticCSP: (header) => header,
+})
+
+// Routes de l'API (GET infos, POST recipes, DELETE recipe)
+registerRoutes(fastify)
+
+// Lancement du serveur
 fastify.listen(
   {
     port: process.env.PORT || 3000,
@@ -17,10 +41,7 @@ fastify.listen(
       process.exit(1)
     }
 
-    //////////////////////////////////////////////////////////////////////
-    // Don't delete this line, it is used to submit your API for review //
-    // everytime your start your server.                                //
-    //////////////////////////////////////////////////////////////////////
+    // Ne pas supprimer cette ligne ! C’est ce qui permet la vérification automatique
     submitForReview(fastify)
   }
 )
