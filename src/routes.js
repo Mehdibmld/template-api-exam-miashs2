@@ -4,25 +4,36 @@ const recipes = {}
 
 export function registerRoutes(fastify) {
   const apiKey = process.env.API_KEY
-  const headers = { headers: { 'apiKey': apiKey } }
   const baseUrl = 'https://api-ugi2pflmha-ew.a.run.app'
+
+  const headers = {
+    headers: {
+      apiKey: apiKey
+    }
+  }
 
   // GET /cities/:cityId/infos
   fastify.get('/cities/:cityId/infos', async (request, reply) => {
     const cityId = request.params.cityId
+
     try {
-      const cityRes = await fetch(`${baseUrl}/cities/${cityId}`, headers)
+      // Appel vers /cities/:cityId/insights
+      const cityRes = await fetch(`${baseUrl}/cities/${cityId}/insights`, headers)
       if (!cityRes.ok) return reply.status(404).send({ error: 'City not found' })
       const city = await cityRes.json()
 
+      // Appel vers weather-predictions avec cityIdentifier
       const weatherRes = await fetch(`${baseUrl}/weather-predictions?cityIdentifier=${cityId}`, headers)
       const weather = await weatherRes.json()
 
       const response = {
-        coordinates: [city.latitude, city.longitude], // ✅ format tableau
+        coordinates: [
+          city.coordinates[0].latitude,
+          city.coordinates[0].longitude
+        ],
         population: city.population,
-        knownFor: city.knownFor.map(item => item.content), // ✅ extraire content des objets
-        weatherPredictions: weather.slice(0, 2).map((w, i) => ({
+        knownFor: city.knownFor.map(item => item.content),
+        weatherPredictions: weather[0].predictions.slice(0, 2).map((w, i) => ({
           when: i === 0 ? 'today' : 'tomorrow',
           min: w.minTemperature,
           max: w.maxTemperature
@@ -46,7 +57,7 @@ export function registerRoutes(fastify) {
     }
 
     try {
-      const cityCheck = await fetch(`${baseUrl}/cities/${cityId}`, headers)
+      const cityCheck = await fetch(`${baseUrl}/cities/${cityId}/insights`, headers)
       if (!cityCheck.ok) return reply.status(404).send({ error: 'City not found' })
 
       if (!recipes[cityId]) recipes[cityId] = []
@@ -64,7 +75,7 @@ export function registerRoutes(fastify) {
     const { cityId, recipeId } = request.params
 
     try {
-      const cityCheck = await fetch(`${baseUrl}/cities/${cityId}`, headers)
+      const cityCheck = await fetch(`${baseUrl}/cities/${cityId}/insights`, headers)
       if (!cityCheck.ok) return reply.status(404).send({ error: 'City not found' })
 
       const list = recipes[cityId] || []
@@ -73,7 +84,7 @@ export function registerRoutes(fastify) {
       if (index === -1) return reply.status(404).send({ error: 'Recipe not found' })
 
       list.splice(index, 1)
-      reply.status(204).send() 
+      reply.status(204).send()
     } catch (error) {
       reply.status(500).send({ error: 'Internal server error' })
     }
